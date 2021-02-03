@@ -8,25 +8,30 @@
 
 #include <chrono> //using this for sequential speed tests
 
-#define DATA_SIZE   1000
+#define DATA_SIZE   200
 #define MEM_SIZE    DATA_SIZE * DATA_SIZE * sizeof(float) 
 
 const char* KernelSource =
 
-"#define DIM 1000																		\n"
+"#define DIM 200																		\n"
 "__kernel void matmult(__global float* A, __global float* B, __global float* C)			\n"
 "{																						\n"
 "	int i, j, k;																		\n"
 "	i = get_global_id(0);																\n"
 "	for (j = 0; j < DIM; j++)															\n"
+"	{																					\n"
+"   float sum = 0.f;																	\n"
 "		for (k = 0; k < DIM; k++)														\n"
 "		{																				\n"
-"			C[i * DIM + j] += A[i*DIM + k] * B[k*DIM + j];								\n"
+"			sum += A[i*DIM + k] * B[k*DIM + j];											\n"
 "		}																				\n"
+"	C[i * DIM + j] = sum;																\n"
+"	}																					\n"
 "}																						\n"
 "																						\n";
 
-//"#define DATA_SIZE 1000																	\n"
+
+//"#define DATA_SIZE 200																	\n"
 //"__kernel void matmult(__global float* Ap, __global float* Bp, __global float* Cp)		\n"
 //"{																						\n"
 //"	int i, j, k;																		\n"
