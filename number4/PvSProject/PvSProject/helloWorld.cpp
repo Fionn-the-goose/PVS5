@@ -8,29 +8,28 @@
 
 #include <chrono> //using this for sequential speed tests
 
-#define DATA_SIZE   1000
+#define DATA_SIZE   300
 #define MEM_SIZE    DATA_SIZE * DATA_SIZE * sizeof(float) 
 
 const char* KernelSource =
 
-"#define DIM 1000																		\n"
+"#define DIM 300																		\n"
 "__kernel void matmult(__global float* A, __global float* B, __global float* C,			\n"
-"	__local float* Al)																	\n"
+"	__local float* Al, __local float* Bl)												\n"
 "{																						\n"
-//"	float Bl[DIM];																		\n"
 "	float sum;																			\n"
 "	int i, j, k;																		\n"
 "	j = get_global_id(0);																\n"
 "	int il = get_local_id(0);															\n"
 "	int nl = get_local_size(0);															\n"
+"	for (k = 0; k < DIM; k++) Bl[k] = B[k*DIM + j];										\n"
+"	barrier(CLK_LOCAL_MEM_FENCE);														\n"
 "	for (i = 0; i < DIM; i++)															\n"
 "	{																					\n"
-"		for (k = il; k < DIM; k += nl)													\n"
-"			Al[k] = A[i*DIM + k];														\n"
+"		for (k = il; k < DIM; k += nl) Al[k] = A[i*DIM + k];							\n"
+"		barrier(CLK_LOCAL_MEM_FENCE);													\n"
 "		sum = 0.f;																		\n"
-"		for (k = 0; k < DIM; k++)														\n"
-//"			sum += A[i*DIM + k] * B[k*DIM + j];											\n"
-"			sum += Al[k] * B[k*DIM + j];												\n"
+"		for (k = 0; k < DIM; k++) sum += Al[k] * B[k*DIM + j];									\n"
 "		C[i * DIM + j] = sum;															\n"
 "	}																					\n"
 "}																						\n"
@@ -280,6 +279,7 @@ int main(void)
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), &Bp);
 	clSetKernelArg(kernel, 2, sizeof(cl_mem), &Cp);
 	clSetKernelArg(kernel, 3, sizeof(cl_mem)*DATA_SIZE, NULL);
+	clSetKernelArg(kernel, 4, sizeof(float)* DATA_SIZE, NULL);
 
 
 
