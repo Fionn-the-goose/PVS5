@@ -11,6 +11,12 @@
 #define DATA_SIZE   1000
 #define MEM_SIZE    DATA_SIZE * DATA_SIZE * sizeof(float) 
 
+//reasons for speedup:
+	//getting a global id to replace one of the for loops, can theoretically make it run proportionally faster up to as large of a factor as our data size, as long as we have sufficient workers to run the loop in parallel
+	//temporarily storing results in a sum value instead of directly writing to the matrix not only prevents errors but saves the time of repeatedly writing to a global variable, rather than writing to a locally declared temporary value, and only writing to the global one once at the end
+	//swapping loops drastically sped up performance, suggesting that there was more difficulty when iterating through rows in A compared to iterating through elements in B
+	//localizing matrices likely had a similar effect which overlapped with the speedup caused by the loop swap, as a result we didn't notice significant speedup changes from the localization
+
 const char* KernelSource =
 
 "#define DIM 1000																		\n"
