@@ -8,27 +8,50 @@
 
 #include <chrono> //using this for sequential speed tests
 
-#define DATA_SIZE   200
+#define DATA_SIZE   1000
 #define MEM_SIZE    DATA_SIZE * DATA_SIZE * sizeof(float) 
 
 const char* KernelSource =
 
-"#define DIM 200																		\n"
-"__kernel void matmult(__global float* A, __global float* B, __global float* C)			\n"
+"#define DIM 1000																		\n"
+"__kernel void matmult(__global float* A, __global float* B, __global float* C,			\n"
+"	__local float* Al)																	\n"
 "{																						\n"
+//"	float Bl[DIM];																		\n"
+"	float sum;																			\n"
 "	int i, j, k;																		\n"
 "	j = get_global_id(0);																\n"
+"	int il = get_local_id(0);															\n"
+"	int nl = get_local_size(0);															\n"
 "	for (i = 0; i < DIM; i++)															\n"
 "	{																					\n"
-"   float sum = 0.f;																	\n"
+"		for (k = il; k < DIM; k += nl)													\n"
+"			Al[k] = A[i*DIM + k];														\n"
+"		sum = 0.f;																		\n"
 "		for (k = 0; k < DIM; k++)														\n"
-"		{																				\n"
-"			sum += A[i*DIM + k] * B[k*DIM + j];											\n"
-"		}																				\n"
-"	C[i * DIM + j] = sum;																\n"
+//"			sum += A[i*DIM + k] * B[k*DIM + j];											\n"
+"			sum += Al[k] * B[k*DIM + j];												\n"
+"		C[i * DIM + j] = sum;															\n"
 "	}																					\n"
 "}																						\n"
 "																						\n";
+
+//void test(float* A, float* B, float* C, float* Al)
+//{
+//	const int DIM = 200;
+//	float Al[DIM], sum;
+//	int i, j, k;
+//	j = 0;
+//	for (i = 0; i < DIM; i++)
+//	{
+//		for (k = 0; k < DIM; k++)
+//			Al[k] = A[i * DIM + k];
+//		sum = 0.f;
+//		for (k = 0; k < DIM; k++)
+//			sum += Al[k] * B[k * DIM + j];
+//		C[i * DIM + j] = sum;
+//	}
+//}
 
 
 //"#define DATA_SIZE 200																	\n"
@@ -99,6 +122,17 @@ bool compare_mat(float** A, float** B, int row, int col) {
 	return true;
 }
 
+//hippity hoppity this ggt from the lecture is my property
+int ggt(int x, int y)
+{
+	int z;
+	while (y) {
+		z = x % y;
+		x = y;
+		y = z;
+	}
+	return x;
+}
 
 int main(void)
 {
@@ -134,7 +168,7 @@ int main(void)
 	cl_kernel 			kernel;
 	cl_command_queue	command_queue;
 	cl_program 			program;
-	size_t				global[2] = { DATA_SIZE, DATA_SIZE };
+	size_t				global[1] = { DATA_SIZE }, local[1];
 	float				results[DATA_SIZE] = { 0 };
 
 	cl_event event;
@@ -180,6 +214,14 @@ int main(void)
 			printf("Could not get device in platform. Error: %d\n", err);
 			return 0;
 		}
+
+		err = clGetDeviceInfo(device_id, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(size_t), local, NULL);
+		if (err != CL_SUCCESS)
+		{
+			printf("I am sad. Error: %d\n", err);
+			return 0;
+		}
+		local[0] = ggt(global[0], local[0]);
 	}
 
 	context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
@@ -237,10 +279,11 @@ int main(void)
 	clSetKernelArg(kernel, 0, sizeof(cl_mem), &Ap);
 	clSetKernelArg(kernel, 1, sizeof(cl_mem), &Bp);
 	clSetKernelArg(kernel, 2, sizeof(cl_mem), &Cp);
+	clSetKernelArg(kernel, 3, sizeof(cl_mem)*DATA_SIZE, NULL);
 
 
 
-	clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, global, NULL, 0, NULL, &event);
+	clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, global, local, 0, NULL, &event);
 
 	clFinish(command_queue);
 
